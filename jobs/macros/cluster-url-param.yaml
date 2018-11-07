@@ -1,0 +1,7 @@
+---
+- parameter:
+    name: cluster-url-param
+    parameters:
+      - string: 
+          name: CLUSTER_URL
+          description: 'URL of cluster on which the tests will be executed.'

@@ -1,0 +1,11 @@
+---
+- job-group:
+    name: 'tests-generated'
+    jobs:
+        - "{prefix}-tests-generated":
+            prefix: after-first-login
+            script-path: scripts/first-login-tests.groovy 
+- project:
+    name: default-tests
+    jobs: 
+        - tests-generated

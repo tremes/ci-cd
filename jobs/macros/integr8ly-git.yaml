@@ -1,0 +1,22 @@
+---
+- parameter:
+    name: integr8ly-git-branch
+    parameters:
+      - string:
+          name: REPOSITORY
+          default: 'https://gitlab.cee.redhat.com/integreatly-qe/integreatly-qe.git'
+          description: 'URL of QE repository containing the tests.'
+      - string:
+          name: BRANCH
+          default: 'master'
+          description: 'Branch of the repository'
+# This is SCM to ci-cd repository
+- scm:
+    name: integr8ly-git-branch
+    scm:
+      - git:
+          url: https://github.com/integr8ly/ci-cd.git
+          branches:
+            - refs/heads/master
+          wipe-workspace: false
+          skip-tag: true

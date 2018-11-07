@@ -1,0 +1,15 @@
+---
+- job-template:
+    name: '{prefix}-tests-generated'
+    project-type: pipeline
+    sandbox: true
+    pipeline-scm:
+      scm:
+          - integr8ly-git-branch 
+      script-path: '{script-path}'
+      lightweight-checkout: true
+    parameters:
+      - integr8ly-git-branch
+      - cluster-url-param
+      - integr8ly-user
+    
