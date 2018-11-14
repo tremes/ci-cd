@@ -7,8 +7,7 @@ node('cirhos_rhel7'){
         stage('Run the smoke tests'){
             dir('node-testsuite'){
                 sh '''
-                    oc login ${CLUSTER_URL} -u ${ADMIN_USERNAME} -p ${ADMIN_PASSWORD} --insecure-skip-tls-verify
-                    export USER_TOKEN=$(oc whoami -t)
+                    #oc login ${CLUSTER_URL} -u ${ADMIN_USERNAME} -p ${ADMIN_PASSWORD} --insecure-skip-tls-verify
                     npm install
                     gulp smoke
                 '''
