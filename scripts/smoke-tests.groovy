@@ -6,10 +6,15 @@ node('cirhos_rhel7'){
         }
         stage('Run the smoke tests'){
             dir('node-testsuite'){
-                sh '''
-                    npm install
-                    gulp smoke
-                '''
+                try {
+                    sh '''
+                        npm install
+                        gulp smoke
+                    '''
+                } catch(exp) {
+                    println exp
+                    currentBuild.result = 'UNSTABLE'
+                }
             }
         }
 }
