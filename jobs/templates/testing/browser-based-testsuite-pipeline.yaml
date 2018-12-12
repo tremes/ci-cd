@@ -1,26 +1,26 @@
 ---
 
 - job:
-    name: browser-based-testsuite-pipeline
+    name: browser-based-testsuite-pipeline-tremes
     project-type: pipeline
     description: 'Executes browser based testsuite against Integreatly Tutorial Web App.'
     sandbox: true
     pipeline-scm:
       scm:
         - git:
-            url: http://github.com/integr8ly/ci-cd
+            url: http://github.com/tremes/ci-cd
             clean: true
             branches: 
-              - master
+              - exp
       script-path: scripts/browser-tests.groovy
     parameters:
       - string:
           name: REPOSITORY
-          default: 'https://gitlab.cee.redhat.com/integreatly-qe/integreatly-qe.git'
+          default: 'https://gitlab.cee.redhat.com/tremes/integreatly-qe.git'
           description: 'Repository of the Integreatly Browser based tests'
       - string:
           name: BRANCH
-          default: 'master'
+          default: 'exp'
           description: 'Branch of the repository'
       - string:
           name: WEBAPP_URL

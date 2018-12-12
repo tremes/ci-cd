@@ -13,8 +13,16 @@ timeout(60) {
                       # Disable starting Selenium, Docker is used instead
                       sed -i 's/"start_process" : true,/"start_process" : false,/g' nightwatch.json
                       npm install
-                      npm test
                     """
+                    try {
+                        sh "npm test"
+                    } catch (exp){
+                        println("Tohle je exception " + exp)
+                        println("Tohle je exception message " + exp.getMessage())
+                        sh "echo ${exp.getMessage()}"
+                        sh "echo ${exp.getStackTrace()}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 } 
             }
         }
