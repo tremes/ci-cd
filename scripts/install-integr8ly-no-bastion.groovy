@@ -9,7 +9,7 @@ node("staging") {
         
         stage('Install'){
             dir('evals'){
-                sh "sudo ansible-playbook -i inventories/hosts playbooks/install.yml -e github_client_id=${GH_CLIENT_ID} -e github_client_secret=${GH_CLIENT_SECRET}"
+                sh "sudo ansible-playbook -i inventories/hosts playbooks/install.yml -e github_client_id=${GH_CLIENT_ID} -e github_client_secret=${GH_CLIENT_SECRET} -e eval_self_signed_certs=true"
             }
         }
 }
