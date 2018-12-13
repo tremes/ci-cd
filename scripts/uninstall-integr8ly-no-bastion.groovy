@@ -9,6 +9,7 @@
         
         stage('Uninstall'){
             dir('evals'){
+              sh 'oc login -u system:admin'
               sh 'sudo ansible-playbook -i inventories/hosts playbooks/uninstall.yml'   
             }
         }
