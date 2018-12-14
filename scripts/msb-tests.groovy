@@ -29,7 +29,7 @@ timeout(30){
                         stage('Deploy to OpenShift'){
                               dir("$WORKSPACE"){  
                                     sh '''
-                                          oc login https://master.${CLUSTER_ROUTE}:8443 -u admin@example.com -p Password1 --insecure-skip-tls-verify
+                                          oc login https://master.${CLUSTER_ROUTE}:8443 -u admin -p admin --insecure-skip-tls-verify
                                           oc delete project ${NAMESPACE} || true
                                           sleep 30
                                           oc new-project ${NAMESPACE}
