@@ -1,0 +1,151 @@
+---
+
+- job:
+    name: 3scale-load-test
+    description: 'Executes 3scale load test using perftest-toolkit from https://github.com/3scale/perftest-toolkit.git.'
+    project-type: pipeline
+    sandbox: true
+    parameters:
+      - string:
+         name: GIT_REPO
+         default: https://github.com/3scale/perftest-toolkit.git
+      - string:
+         name: GIT_BRANCH
+         default: master
+      - string:
+         name: AWS_HOST
+         default: 18.200.158.1
+         description: 'IP or hostname of the host where the test will run. Note that Jenkins needs to ssh to this host.'
+      - string:
+         name: AWS_HOST_USER
+         default: centos
+         description: 'User name of a user who can ssh to the given AWS host. '    
+      - string:
+          name: REQUESTS_PER_SECOND
+          description: 'Maximum requests per second to send.'
+      - string:
+          name: DURATION
+          description: 'Duration of the performance test in seconds.'   
+      - string:
+          name: NUMBER_OF_THREADS
+          description: 'Number of threads (parallel connections) to use.'      
+      - string:
+          name: API_URL
+          description: 'Tested API URL.'
+      - string:
+          name: JMETER_TARGET_HOST
+          description: ''
+      - string:
+          name: HOST_HEADER
+          description: ''
+      - string:
+          name: PROTOCOL
+          description: 'Protocol of the tested API URL. It can be http or https'
+      - string:
+          name: PORT
+          description: 'Port of the tested API URL. E.g 80, 443.'           
+      - string:
+          name: WILDCARD_DOMAIN
+          description: 'Wildcard domain (without port and protocol).'    
+      - string:
+          name: BACKEND_ROUTE
+          description: 'Backend route hostname in 3scale.'
+      - string:
+          name: BACKEND_USERNAME
+          default: 3scale_api_user
+          description: '3scale backend username. This can be found in "backend-internal-api" secret.'
+      - string:
+          name: BACKEND_PASSWORD
+          description: '3scale backend password. This can be found in "backend-internal-api" secret.'
+    dsl: |
+        timeout(240) { ansiColor('gnome-terminal') { timestamps {
+            node('cirhos_rhel7'){
+
+                stage('Clone 3scale perftest toolkit repository') {
+                    dir('.') {
+                        git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
+                    }
+                }
+
+                stage('Initial configuration'){
+                    
+                    //use custom image
+                    dir('deployment/roles/buddhi-configurator/tasks') {
+                        sh """
+                            sed -i 's,quay.io/3scale/perftest-toolkit:buddhi-latest,quay.io/3scale/perftest-toolkit:buddhi-backend-url-fix,' ./main.yml
+                            cat main.yml
+                        """
+                    }
+
+                    dir('deployment') {
+                        sh """
+                            sed -i 's/<buddhi-host>/${AWS_HOST}/' ./hosts
+                            sed -i 's/<injector-host>/${AWS_HOST}/' ./hosts
+                            sed -i 's/<buddhi-user>/${AWS_HOST_USER}/' ./hosts
+                            sed -i 's/<injector-user>/${AWS_HOST_USER}/' ./hosts
+                            cat ./hosts
+                        """
+                    }
+                }
+
+                stage('Install the buddhi configurator') {
+                    dir('deployment/roles/buddhi-configurator/defaults') {
+                        sh """
+                            sed -i 's/<traffic_profile>/simple/' ./main.yml
+                            sed -i 's/<backend_username>/${BACKEND_USERNAME}/' ./main.yml
+                            sed -i 's/<backend_basic_auth_pass>/${BACKEND_PASSWORD}/' ./main.yml
+                            sed -i 's,<upstream_uri>,${API_URL},' ./main.yml
+                            sed -i 's,<backend_internal_api_uri>,${BACKEND_ROUTE},' ./main.yml
+                            #sed -i 's,http://backend-listener:3000,${BACKEND_ROUTE},' ./main.yml
+                            sed -i 's/benchmark.<wildcard_domain>/${WILDCARD_DOMAIN}/' ./main.yml
+                            cat main.yml
+                        """
+                    }
+
+                    dir('deployment'){
+                        sh '''
+                           ansible-playbook -i hosts buddhi.yml --ssh-extra-args='-o StrictHostKeyChecking=no'
+                        '''
+                    }
+
+                    // TEMPORARY WORKAROUND for https://github.com/3scale/perftest-toolkit/issues/22
+                    dir('deployment/roles/injector-configurator/templates') {
+                        sh '''
+                            sed -i 's/-ti/-t/' 3scale-perftest.j2
+                        '''
+                    }
+                }
+
+                stage('Install the injector') {
+                    dir('deployment/roles/injector-configurator/defaults') {
+                        sh """
+                            sed -i 's,<jmeter_target_host>,${JMETER_TARGET_HOST},' ./main.yml
+                            sed -i 's/injector_jmeter_protocol: "http"/injector_jmeter_protocol: "${PROTOCOL}"/' ./main.yml
+                            sed -i 's/injector_jmeter_target_port: "80"/injector_jmeter_target_port: "${PORT}"/' ./main.yml
+                            sed -i 's,<jmeter_target_host_header>,${HOST_HEADER},' ./main.yml
+                            cat main.yml
+                        """
+                    }
+
+                    dir('deployment'){
+                        sh '''
+                           ansible-playbook -i hosts injector.yml --ssh-extra-args='-o StrictHostKeyChecking=no'
+                        '''
+                    }
+                }
+
+                stage('Run the 3scale load test'){
+                    sh """
+                       ssh ${AWS_HOST_USER}@${AWS_HOST} "3scale-perftest -r ${REQUESTS_PER_SECOND} -d ${DURATION} -t ${NUMBER_OF_THREADS}"
+                    """
+                }
+
+                stage('Archive report')  {
+                    sh """
+                        scp -r ${AWS_HOST_USER}@${AWS_HOST}:/opt/3scale-perftest/reports/report/ ./report
+                    """
+                    archiveArtifacts 'report/**'
+                    currentBuild.description = "Threads ${NUMBER_OF_THREADS}, Req ${REQUESTS_PER_SECOND}"
+                }
+            }
+        }}}
