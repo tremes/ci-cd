@@ -67,6 +67,13 @@
                     }
                 }
 
+
+                stage('Clean /opt/3scale-perftest before installing')  {
+                    sh """
+                        ssh ${AWS_HOST_USER}@${AWS_HOST} "sudo rm -rf /opt/3scale-perftest/"
+                    """
+                }
+
                 stage('Initial configuration'){
                     
                     //use custom image
