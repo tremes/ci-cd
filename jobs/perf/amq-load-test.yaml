@@ -1,0 +1,100 @@
+---
+
+- job:
+    name: amq-load-test
+    description: 'Executes AMQ load test using ansible playbook from https://github.com/integr8ly/middleware-load-testing.git.'
+    project-type: pipeline
+    sandbox: true
+    parameters:
+      - string:
+          name: GIT_REPO
+          default: https://github.com/integr8ly/middleware-load-testing.git
+      - string:
+          name: GIT_BRANCH
+          default: master
+      - string:
+          name: INTLY_MASTER
+          default: ec2-54-175-9-208.compute-1.amazonaws.com  
+          description: IP or hostname of the cluster under the load
+      - string:
+          name: MAESTRO_MASTER
+          default: ec2-52-5-132-12.compute-1.amazonaws.com 
+          description: IP or hostname of the clsuter with maestro tooling installed  
+      - string:
+          name: MAESTRO_CLUSTER_URL
+          default: https://amqperf.skunkhenry.com
+      - string:
+          name: MAESTRO_CLUSTER_USER
+          default: integreatly
+      - string:
+          name: MAESTRO_CLUSTER_PASSWORD
+      - string:
+          name: STANDARD_MESSAGE_SIZE
+          default: "512"
+      - string:
+          name: TEST_OPTS
+          default: "transport.trustAll=true\\&transport.verifyHost=false"
+      - string:
+          name: MAX_LATENCY
+          default: "15000000"      
+      - string:
+          name: BASE_TEST_DURATION
+          default: "0d0h0m30s"
+      - string:
+          name: BASE_RATE
+          default: "1000"
+      - string:
+          name: PARALLEL_CONNECTIONS
+          default: "10"
+    dsl: |
+        timeout(240) { 
+            ansiColor('gnome-terminal') { 
+                node('cirhos_rhel7'){
+                    timestamps {
+                        stage('Clone testing repository') {
+                            dir('.') {
+                                git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
+                            }
+                        }
+
+                        stage('Initial configuration'){
+                            
+                            dir('amq-online/ansible/inventories') {
+                                sh """
+                                    mv inventory.template inventory
+                                """
+                                sh """
+                                    sed -i 's/intly_master.evals.example.com/${INTLY_MASTER}/' ./inventory
+                                    sed -i 's/maestro_master.evals.example.com/${MAESTRO_MASTER}/' ./inventory
+                                    cat ./inventory
+                                """
+                            }
+
+                            dir('amq-online/ansible/playbooks/roles/maestro-client/defaults') {
+                                sh """
+                                    sed -i 's/standard_message_size: "512"/standard_message_size: ${STANDARD_MESSAGE_SIZE}/' ./main.yml
+                                    sed -i 's/test_opts: transport.trustAll=true\\&transport.verifyHost=false/test_opts: ${TEST_OPTS}/' ./main.yml
+                                    sed -i 's/max_latency: "15000000"/max_latency: "${MAX_LATENCY}"/' ./main.yml
+                                    sed -i 's/base_test_duration: "0d0h0m30s"/base_test_duration: "${BASE_TEST_DURATION}"/' ./main.yml
+                                    sed -i 's/base_rate: "100"/base_rate: "${BASE_RATE}"/' ./main.yml
+                                    sed -i 's/parallel_connections: "100"/parallel_connections: "${PARALLEL_CONNECTIONS}"/' ./main.yml
+                                """
+                            }
+                        }
+
+                        stage('Run the AMQ load test'){
+                            sh """
+                                ansible-playbook -i amq-online/ansible/inventories/inventory amq-online/ansible/playbooks/execute_tests.yml --private-key=/home/jenkins/.ssh/id_rsa --ssh-extra-args='-o StrictHostKeyChecking=no'
+                            """
+                        }
+                    }
+
+                    stage('Print results')  {
+                        sh """
+                            oc login ${MAESTRO_CLUSTER_URL} -u ${MAESTRO_CLUSTER_USER} -p ${MAESTRO_CLUSTER_PASSWORD}
+                            oc -n maestro exec mariadb-101-centos7-1-hs4d8 -- bash -c "mysql --user=root maestro -e 'SELECT * FROM test_results;'"
+                        """
+                    }
+                }
+            }
+        }
