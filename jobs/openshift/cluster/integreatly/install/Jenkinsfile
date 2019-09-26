@@ -94,10 +94,10 @@ node('cirhos_rhel7') {
                 eval_self_signed_certs: "${installerOptions.selfSignedCerts}",
                 integreatly_inventory_source_aws_credentials: "${installerOptions.awsCredentials}"
             ]
-            for(String param : additionalParams) {
+           /* for(String param : additionalParams) {
                 def paramValues = param.split(":")
                 extraVars.put(paramValues[0].trim(), paramValues[1].trim())
-            }
+            }*/
             println(extraVars)
 
             Yaml yamlParams = new Yaml()
